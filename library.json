@@ -60,7 +60,8 @@
   "frameworks": "arduino",
   "platforms": [
     "espressif32",
-    "espressif8266"
+    "espressif8266",
+    "raspberrypi"
   ],
   "build":
   {

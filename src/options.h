@@ -43,6 +43,15 @@ typedef std::chrono::steady_clock clk;
 #define micros() std::chrono::duration_cast<std::chrono::microseconds>(clk::now().time_since_epoch()).count()
 #endif
 
+#elif defined(ARDUINO_ARCH_RP2040)
+#include <Arduino.h>
+#define USE_MUTEX 0
+#define HAS_RP2040_FREERTOS 1
+#define HAS_ETHERNET 0
+#define IS_LINUX 0
+const unsigned int SERVER_TASK_STACK = 4096;
+const unsigned int CLIENT_TASK_STACK = 4096;
+
 /* === INVALID TARGET === */
 #else
 #error Define target in options.h
@@ -54,5 +63,20 @@ typedef std::chrono::steady_clock clk;
 #else
 #define LOCK_GUARD(x,y)
 #endif
+
+#if defined(configNUMBER_OF_CORES)
+#define EMODBUS_CAN_SET_CORE_AFFINITY(coreID) ((configNUMBER_OF_CORES > 1) && ((coreID) > -1))
+#elif defined(configNUM_CORES)
+#define EMODBUS_CAN_SET_CORE_AFFINITY(coreID) ((configNUM_CORES > 1) && ((coreID) > -1))
+#else
+#define EMODBUS_CAN_SET_CORE_AFFINITY(coreID) (false)
+#endif
+
+#define EMODBUS_SET_TASK_AFFINITY(task, coreID) \
+  do {                                           \
+    if (EMODBUS_CAN_SET_CORE_AFFINITY(coreID)) { \
+      vTaskCoreAffinitySet((task), (1 << (coreID))); \
+    }                                            \
+  } while (0)
 
 #endif // _EMODBUS_OPTIONS_H

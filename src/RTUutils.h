@@ -55,6 +55,12 @@ static void prepareHardwareSerial(HardwareSerial& s, uint16_t bufferSize = 260) 
   s.setRxBufferSize(bufferSize);
   s.setTxBufferSize(bufferSize);
 }
+#elif HAS_RP2040_FREERTOS
+// RP2040 Arduino core exposes FIFO sizing on SerialUART.
+#include <SerialUART.h>
+static void prepareHardwareSerial(SerialUART& s, uint16_t bufferSize = 260) {
+  s.setFIFOSize(bufferSize);
+}
 #endif
 
 protected:
