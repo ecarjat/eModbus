@@ -3,6 +3,7 @@
 //               MIT license - see license.md for details
 // =================================================================================================
 #include "ModbusServerRTU.h"
+#include "RTUEchoPolicy.h"
 
 #if HAS_FREERTOS || HAS_RP2040_FREERTOS
 
@@ -168,6 +169,8 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
   ModbusMessage request;                // received request message
   ModbusMessage m;                      // Application's response data
   ModbusMessage response;               // Response proper to be sent
+  ModbusMessage lastResponse;           // Possible echo already buffered after sending
+  bool echoBuffered = false;
 
   // init microseconds timer
   myServer->MSRlastMicros = micros();
@@ -187,6 +190,18 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
       myServer->MSRinterval, 
       myServer->MSRuseASCII, 
       myServer->MSRskipLeadingZeroByte);
+
+    // Only consider bytes already buffered immediately after transmission and
+    // only when the response shape cannot be a valid request. In particular,
+    // FC05/FC06 replies are identical to valid requests and must not be filtered.
+    const bool isLocalResponseEcho = rtuIsBufferedResponseEcho(
+        echoBuffered, request.data(), request.size(), lastResponse.data(), lastResponse.size());
+    echoBuffered = false;
+    if (isLocalResponseEcho) {
+      LOG_D("Ignoring local response echo.\n");
+      delay(1);
+      continue;
+    }
 
     // Request longer than 1 byte (that will signal an error in receive())? 
     if (request.size() > 1) {
@@ -256,7 +271,9 @@ void ModbusServerRTU::serve(ModbusServerRTU *myServer) {
         // Do we have gathered a valid response now?
         if (response.size() >= 3) {
           // Yes. send it back.
+          lastResponse = response;
           RTUutils::send(*(myServer->MSRserial), myServer->MSRlastMicros, myServer->MSRinterval, myServer->MRTSrts, response, myServer->MSRuseASCII);
+          echoBuffered = rtuResponseCannotBeRequest(response.data(), response.size()) && myServer->MSRserial->available() > 0;
           LOG_D("Response sent.\n");
           // Count it, in case we had an error response
           if (response.getError() != SUCCESS) {

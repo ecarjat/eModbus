@@ -1,0 +1,11 @@
+name: RTU echo policy
+on: [push, pull_request]
+jobs:
+  host-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run echo policy tests
+        run: |
+          c++ -std=c++11 -Wall -Wextra -Werror Test/rtu_echo_policy.cpp -o /tmp/rtu-echo-policy
+          /tmp/rtu-echo-policy
